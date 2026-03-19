@@ -1,29 +1,42 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const pool = require("../config/db");
-const battleService = require("../services/battleService");
-const { successResponse, errorResponse } = require('../utils/response');
 
+const {
+    startBattle,
+    processTurn
+} = require('../services/battleService');
 
-router.post('/', async (req, res) => {
+// 👇 これが必要
+router.post('/start', async (req, res) => {
+
     try {
-      const { characterId, enemyId } = req.body;
-  
-      if (!characterId || !enemyId) {
-        return errorResponse(res, 400, 'Missing required fields');
-      }
-  
-      const result = await battleService.executeBattle({
-        characterId,
-        enemyId
-      });
-  
-      return successResponse(res, result);
-  
-    } catch (error) {
-      const statusCode = error.statusCode || 500;
-      return errorResponse(res, statusCode, error.message);
+        const { partyId, enemyId } = req.body;
+
+        const result =
+            await startBattle(partyId, enemyId);
+
+        res.json(result);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
     }
-  });
+});
+
+router.post('/attack', async (req, res) => {
+
+    try {
+        const { sessionId, skillId } = req.body;
+
+        const result =
+            await processTurn(sessionId, skillId);
+
+        res.json(result);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 module.exports = router;
