@@ -14,14 +14,14 @@ exports.startBattle = async ({ partyId, enemyId}) => {
 
         // パーティ取得
         const partyResult = await client.query(
-                `SELECT pm.character_id, pm.position,
-                        c.max_hp
+                `SELECT pm.character_id, pm.position, c.max_hp
                 FROM party_members pm
                 JOIN characters c ON pm.character_id = c.id
                 WHERE pm.party_id = $1
-                ORDER BY pm.position`,
+                ORDER BY pm.position;`,
                 [partyId]
             );
+
 
             if (partyResult.rows.length === 0) {
                 throw new Error('Party has no members');
@@ -53,8 +53,8 @@ exports.startBattle = async ({ partyId, enemyId}) => {
                 RETURNING *`,
                 [
                     partyId,
-                    enemyData.id,
-                    enemyData.max_hp
+                    enemy.id,
+                    enemy.max_hp
                 ]
             );
 
@@ -285,22 +285,29 @@ exports.processTurn = async (sessionId, skillId = null) => {
     // battle_history保存
     // =====================
 
-    await client.query(
+    for (const member of party) {
+        await client.query(
         `INSERT INTO battle_history
          (session_id,
+          character_id,
+          enemy_id,
           enemy_damage,
           player_damage,
           exp_gained,
           result)
-         VALUES ($1,$2,$3,$4,$5)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [
             sessionId,
+            member.character_id,
+            session.enemy_id,
             enemyDamage,
             totalPlayerDamage,
             expGained,
             result
         ]
     );
+    }
+    
 
     await client.query('COMMIT');
 

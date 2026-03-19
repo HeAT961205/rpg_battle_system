@@ -1,19 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const { startBattle, processTurn } = require('../services/battleService');
 
-const {
-    startBattle,
-    processTurn
-} = require('../services/battleService');
 
-// 👇 これが必要
 router.post('/start', async (req, res) => {
 
     try {
         const { partyId, enemyId } = req.body;
 
         const result =
-            await startBattle(partyId, enemyId);
+            await startBattle({partyId, enemyId});
 
         res.json(result);
 
