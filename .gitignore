@@ -1,0 +1,18 @@
+# node_modules（両方まとめて除外）
+node_modules/
+
+# 環境変数ファイル
+.env
+.env.*
+
+# ログ
+logs/
+*.log
+npm-debug.log*
+
+# OS系
+.DS_Store
+
+# ビルド成果物
+dist/
+build/
