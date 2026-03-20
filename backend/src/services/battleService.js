@@ -222,9 +222,8 @@ exports.processTurn = async (sessionId, skillId = null) => {
         }
     }
 
-    // =====================
+
     // 勝敗判定
-    // =====================
 
     let result = 'ongoing';
 
@@ -237,10 +236,7 @@ exports.processTurn = async (sessionId, skillId = null) => {
         result = 'defeat';
     }
 
-    // =====================
     // DB更新
-    // =====================
-
     await client.query(
         `UPDATE battle_sessions
          SET enemy_hp = $1,
@@ -258,10 +254,7 @@ exports.processTurn = async (sessionId, skillId = null) => {
         );
     }
 
-    // =====================
     // EXP処理
-    // =====================
-
     let expGained = 0;
 
     if (result === 'victory') {
@@ -281,9 +274,8 @@ exports.processTurn = async (sessionId, skillId = null) => {
         }
     }
 
-    // =====================
+
     // battle_history保存
-    // =====================
 
     for (const member of party) {
         await client.query(

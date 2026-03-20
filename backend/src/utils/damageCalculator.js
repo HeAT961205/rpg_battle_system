@@ -36,11 +36,11 @@ function calculateDamage({
   defenderElement
 }) {
 
-  // ① 属性倍率
+  // 属性倍率
   const multiplier =
       getElementMultiplier(attackerElement, defenderElement);
 
-  // ② 基礎威力（3:7）
+  // 基礎威力（3:7）
   const skillWeight = 0.3;
   const statWeight = 0.7;
 
@@ -48,19 +48,19 @@ function calculateDamage({
       (skillPower * skillWeight) +
       (attack * statWeight);
 
-  // ③ 防御計算
+  // 防御計算
   const reduced =
       basePower - (defense / 3);
 
-  // ④ 最低ダメージ保証
+  // 最低ダメージ保証
   let damage =
       Math.max(Math.floor(reduced), 1);
 
-  // ⑤ 属性倍率適用
+  // 属性倍率適用
   damage =
       Math.floor(damage * multiplier);
 
-  // ⑥ ダメージばらつき（±5%）
+  // ダメージばらつき（±5%）
   const variance = 0.05;
   const randomFactor =
       1 + (Math.random() * variance * 2 - variance);
