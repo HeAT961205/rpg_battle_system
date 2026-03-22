@@ -17,6 +17,9 @@ npm-debug.log*
 dist/
 build/
 
+# DB dumps
+backend/dump.sql
+
 # Claude Code
 CLAUDE.md
 .claude/
