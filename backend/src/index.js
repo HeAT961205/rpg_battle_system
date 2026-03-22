@@ -12,7 +12,6 @@ app.use(cors());
 
 app.use("/characters", characterRoutes);
 app.use("/enemies", enemyRoutes);
-app.use("/", battleRoutes);
 app.use("/battle", battleRoutes);
 
 app.listen(3001, () => {

@@ -32,21 +32,21 @@ exports.startBattle = async ({ partyId, enemyId}) => {
             }
 
         //  敵取得
-        const enemyResult = await pool.query(
+        const enemyResult = await client.query(
             'SELECT * FROM enemies WHERE id = $1',
             [enemyId]
         );
-        
+
         if (enemyResult.rows.length === 0) {
             const error = new Error('Enemy not found');
             error.statusCode = 404;
             throw error;
         }
-        
+
         const enemy = enemyResult.rows[0];
-  
+
         // battle_session作成
-            const sessionResult = await pool.query(
+            const sessionResult = await client.query(
                 `INSERT INTO battle_sessions
                 (party_id, enemy_id, enemy_hp)
                 VALUES ($1, $2, $3)
