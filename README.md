@@ -15,36 +15,64 @@
 - 戦闘履歴保存（battle_history）
 
 ## 技術スタック
+
+### Backend
 - Node.js
 - Express
 - PostgreSQL
+
+### Frontend
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS
 
 ## 設計のポイント
 - トランザクション管理によるデータ整合性
 - service / utils の責務分離
 - 再利用可能なダメージ計算ロジック
 
+## 画面構成
+
+| 画面 | URL | 説明 |
+|------|-----|------|
+| ホーム | `/` | 各画面へのナビゲーション |
+| パーティ編成 | `/party` | キャラクターの選択・保存（最大3人） |
+| 戦闘準備 | `/battle-prep` | パーティと敵を選択して戦闘開始 |
+| 戦闘 | `/battle?battleId=X` | ターン制バトル・リザルト表示 |
+
 ## 環境構築
 
-### 1. backendに移動
+### Backend
+
+```bash
 cd backend
-
-###　2.　依存関係インストール
 npm install
+cp .env.example .env   # 環境変数を設定
+node src/index.js      # ポート3001で起動
+```
 
-### 3. 環境変数設定
-`.env.example` をコピーして `.env` を作成
-cp .env.example .env
+### Database
 
-### 4. サーバー起動
-npm run dev
+```bash
+psql -U <user> -d tower_of_doom -f backend/schema.sql
+psql -U <user> -d tower_of_doom -f backend/seed.sql
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev   # ポート3000で起動
+```
 
 ## 工夫した点
 - ダメージ計算をユーティリティとして分離し再利用性を向上
 - トランザクションを用いてデータ整合性を確保
 
 ## 今後の改善予定
-- ターンログ（battle_log）
-- スキル設計
-- パーティ編成機能
-- フロントエンド実装
+- スキルシステムの実装
+- 経験値・レベルアップ処理
+- ユーザー認証
+- UIデザインの実装
