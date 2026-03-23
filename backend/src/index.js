@@ -7,12 +7,14 @@ app.use(express.json());
 const characterRoutes = require("./routes/characters");
 const enemyRoutes = require("./routes/enemies");
 const battleRoutes = require("./routes/battle");
+const partyRoutes = require("./routes/party");
 
 app.use(cors());
 
 app.use("/characters", characterRoutes);
 app.use("/enemies", enemyRoutes);
 app.use("/battle", battleRoutes);
+app.use("/party", partyRoutes);
 
 app.listen(3001, () => {
   console.log("Server running on port 3001");
