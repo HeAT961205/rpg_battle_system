@@ -20,6 +20,8 @@ export type Character = {
     max_hp: number;
     attack: number;
     defense: number;
+    exp: number;
+    next_exp: number;
 };
 
 export type Enemy = {
@@ -34,12 +36,26 @@ export type Enemy = {
     is_boss: boolean;
 };
 
+export type Skill = {
+    id: number;
+    name: string;
+    power: number;
+    target_type: string;
+    mp_cost: number;
+};
+
 export type PartyMember = Character & { position: number };
 
 export type BattleState = {
     battleId: number;
-    party: { id: number; name: string; current_hp: number; position: number }[];
-    enemy: { id: number; name: string; hp: number; maxHp: number };
+    enemyLevel: number;
+    party: { id: number; name: string; current_hp: number; max_hp: number; position: number; element: string }[];
+    enemy: { id: number; name: string; hp: number; maxHp: number; element: string };
+};
+
+export type BattleAction = {
+    characterId: number;
+    skillId: number | null;
 };
 
 export type TurnResult = {
@@ -61,20 +77,25 @@ export const api = {
     getCharacters: () => request<Character[]>('/characters'),
     getEnemies: () => request<Enemy[]>('/enemies'),
     getParty: () => request<{ members: PartyMember[] }>('/party'),
+    getSkills: () => request<Skill[]>('/skills'),
+    getCharacterSkills: (characterId: number) =>
+        request<Skill[]>(`/skills/character/${characterId}`),
+    resetCharacterLevel: (characterId: number) =>
+        request<Character>(`/characters/${characterId}/reset`, { method: 'POST' }),
     updateParty: (members: number[]) =>
         request<{ message: string }>('/party', {
             method: 'POST',
             body: JSON.stringify({ members }),
         }),
-    startBattle: (partyId: number, enemyId: number) =>
-        request<{ battleId: number; party: PartyMember[]; enemy: Enemy }>('/battle/start', {
+    startBattle: (partyId: number, enemyId: number, enemyLevel: number = 1) =>
+        request<{ battleId: number; enemyLevel: number; party: PartyMember[]; enemy: Enemy }>('/battle/start', {
             method: 'POST',
-            body: JSON.stringify({ partyId, enemyId }),
+            body: JSON.stringify({ partyId, enemyId, enemyLevel }),
         }),
-    action: (battleId: number, skillId?: number) =>
+    action: (battleId: number, actions: BattleAction[]) =>
         request<TurnResult>('/battle/action', {
             method: 'POST',
-            body: JSON.stringify({ battleId, skillId: skillId ?? null }),
+            body: JSON.stringify({ battleId, actions }),
         }),
     getBattleState: (battleId: number) =>
         request<BattleState>(`/battle/${battleId}`),
