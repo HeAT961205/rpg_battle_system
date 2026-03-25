@@ -2,9 +2,13 @@ const pool = require('../config/db');
 const { calculateDamage } = require('../utils/damageCalculator');
 const { selectBossAction } = require('../utils/selectBossAction');
 
+// レベルに応じてステータスをスケーリング (×1.1^(level-1))
+function scaleByLevel(baseStat, level) {
+    return Math.round(baseStat * Math.pow(1.1, level - 1));
+}
 
 
-exports.startBattle = async ({ partyId, enemyId }) => {
+exports.startBattle = async ({ partyId, enemyId, enemyLevel = 1 }) => {
 
     const client = await pool.connect();
 
@@ -42,14 +46,20 @@ exports.startBattle = async ({ partyId, enemyId }) => {
         }
 
         const enemy = enemyResult.rows[0];
+        const level = Math.max(1, Math.min(50, parseInt(enemyLevel) || 1));
 
-        // battle_session作成
+        // レベルスケーリング
+        const scaledMaxHp = scaleByLevel(enemy.max_hp, level);
+        const scaledAttack = scaleByLevel(enemy.attack, level);
+        const scaledDefense = scaleByLevel(enemy.defense, level);
+
+        // battle_session作成（スケール済みステータスを保存）
         const sessionResult = await client.query(
             `INSERT INTO battle_sessions
-             (party_id, enemy_id, enemy_hp)
-             VALUES ($1, $2, $3)
+             (party_id, enemy_id, enemy_hp, enemy_level, enemy_max_hp, enemy_attack, enemy_defense)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
-            [partyId, enemy.id, enemy.max_hp]
+            [partyId, enemy.id, scaledMaxHp, level, scaledMaxHp, scaledAttack, scaledDefense]
         );
 
         const session = sessionResult.rows[0];
@@ -68,6 +78,7 @@ exports.startBattle = async ({ partyId, enemyId }) => {
 
         return {
             battleId: session.id,
+            enemyLevel: level,
             party: partyResult.rows.map(m => ({
                 id: m.character_id,
                 name: m.name,
@@ -80,7 +91,11 @@ exports.startBattle = async ({ partyId, enemyId }) => {
             enemy: {
                 id: enemy.id,
                 name: enemy.name,
-                hp: enemy.max_hp
+                hp: scaledMaxHp,
+                maxHp: scaledMaxHp,
+                attack: scaledAttack,
+                defense: scaledDefense,
+                element: enemy.element
             }
         };
 
@@ -93,21 +108,19 @@ exports.startBattle = async ({ partyId, enemyId }) => {
 };
 
 
-// 1ターンの処理
-exports.processTurn = async (battleId, skillId = null) => {
+// actions: [{ characterId, skillId }] - メンバー別行動
+// skillId が null の場合は通常攻撃
+exports.processTurn = async (battleId, actions = []) => {
 
     const client = await pool.connect();
 
     try {
         await client.query('BEGIN');
 
-        // セッション取得
+        // セッション取得（スケール済みステータスを使用）
         const sessionResult = await client.query(
             `SELECT bs.*,
-                    e.attack AS enemy_attack,
-                    e.defense AS enemy_defense,
                     e.element AS enemy_element,
-                    e.max_hp AS enemy_max_hp,
                     e.exp_reward,
                     e.is_boss
              FROM battle_sessions bs
@@ -127,6 +140,12 @@ exports.processTurn = async (battleId, skillId = null) => {
         let enemyHp = session.enemy_hp;
         let bossPhase = session.boss_phase;
 
+        // セッションに保存されたスケール済みステータスを使用
+        const enemyAttack = session.enemy_attack;
+        const enemyDefense = session.enemy_defense;
+        const enemyMaxHp = session.enemy_max_hp;
+        const enemyElement = session.enemy_element;
+
         // パーティ取得
         const partyResult = await client.query(
             `SELECT bp.*, c.attack, c.defense, c.element, c.name
@@ -142,42 +161,64 @@ exports.processTurn = async (battleId, skillId = null) => {
         let totalPlayerDamage = 0;
         let enemyDamage = 0;
 
-        // プレイヤーターン
-        let skillPower = 0;
-
-        if (skillId) {
+        // スキル情報をまとめて取得
+        const skillIds = actions.map(a => a.skillId).filter(id => id != null);
+        const skillMap = {};
+        if (skillIds.length > 0) {
             const skillRes = await client.query(
-                `SELECT * FROM skills WHERE id = $1`,
-                [skillId]
+                `SELECT * FROM skills WHERE id = ANY($1::int[])`,
+                [skillIds]
             );
-            skillPower = skillRes.rows[0].power;
+            for (const skill of skillRes.rows) {
+                skillMap[skill.id] = skill;
+            }
         }
 
+        // actions を characterId → skillId のマップに変換
+        const actionMap = {};
+        for (const action of actions) {
+            actionMap[action.characterId] = action.skillId || null;
+        }
+
+        // プレイヤーターン
         for (let member of party) {
 
             if (member.current_hp <= 0) continue;
 
+            const chosenSkillId = actionMap[member.character_id] ?? null;
+            const skillPower = chosenSkillId && skillMap[chosenSkillId]
+                ? skillMap[chosenSkillId].power
+                : 0;
+            const skillName = chosenSkillId && skillMap[chosenSkillId]
+                ? skillMap[chosenSkillId].name
+                : null;
+
             const { damage } = calculateDamage({
                 attack: member.attack,
-                defense: session.enemy_defense,
+                defense: enemyDefense,
                 skillPower,
                 attackerElement: member.element,
-                defenderElement: session.enemy_element
+                defenderElement: enemyElement
             });
 
             enemyHp -= damage;
             totalPlayerDamage += damage;
-            logs.push(`${member.name} attacks for ${damage} damage`);
+
+            if (skillName) {
+                logs.push(`${member.name} が ${skillName} を使い ${damage} のダメージ！`);
+            } else {
+                logs.push(`${member.name} の攻撃！ ${damage} のダメージ！`);
+            }
         }
 
         if (enemyHp < 0) enemyHp = 0;
 
         // フェーズ遷移チェック
         if (session.is_boss && bossPhase === 1) {
-            const hpRate = enemyHp / session.enemy_max_hp;
+            const hpRate = enemyHp / enemyMaxHp;
             if (hpRate <= 0.5) {
                 bossPhase = 2;
-                logs.push('Boss enters Phase 2!');
+                logs.push('ボスがフェーズ2に突入！');
             }
         }
 
@@ -196,16 +237,16 @@ exports.processTurn = async (battleId, skillId = null) => {
                 const target = aliveMembers[Math.floor(Math.random() * aliveMembers.length)];
 
                 const { damage } = calculateDamage({
-                    attack: session.enemy_attack,
+                    attack: enemyAttack,
                     defense: target.defense,
                     skillPower: 0,
-                    attackerElement: session.enemy_element,
+                    attackerElement: enemyElement,
                     defenderElement: target.element
                 });
 
                 target.current_hp = Math.max(target.current_hp - damage, 0);
                 enemyDamage += damage;
-                logs.push(`Enemy attacks ${target.name} for ${damage} damage`);
+                logs.push(`敵の攻撃！ ${target.name} に ${damage} のダメージ！`);
 
             } else if (actionType === 'aoe') {
 
@@ -214,16 +255,16 @@ exports.processTurn = async (battleId, skillId = null) => {
                     if (member.current_hp <= 0) continue;
 
                     const { damage } = calculateDamage({
-                        attack: session.enemy_attack * 1.5,
+                        attack: enemyAttack * 1.5,
                         defense: member.defense,
                         skillPower: 0,
-                        attackerElement: session.enemy_element,
+                        attackerElement: enemyElement,
                         defenderElement: member.element
                     });
 
                     member.current_hp = Math.max(member.current_hp - damage, 0);
                     enemyDamage += damage;
-                    logs.push(`Enemy AOE hits ${member.name} for ${damage} damage`);
+                    logs.push(`敵の全体攻撃！ ${member.name} に ${damage} のダメージ！`);
                 }
             }
         }
@@ -288,7 +329,7 @@ exports.processTurn = async (battleId, skillId = null) => {
 exports.getBattleState = async (battleId) => {
 
     const sessionResult = await pool.query(
-        `SELECT bs.*, e.name AS enemy_name, e.max_hp AS enemy_max_hp
+        `SELECT bs.*, e.name AS enemy_name, e.element AS enemy_element
          FROM battle_sessions bs
          JOIN enemies e ON bs.enemy_id = e.id
          WHERE bs.id = $1`,
@@ -304,7 +345,7 @@ exports.getBattleState = async (battleId) => {
     const session = sessionResult.rows[0];
 
     const partyResult = await pool.query(
-        `SELECT bp.current_hp, bp.position, c.id, c.name, c.attack, c.defense, c.element
+        `SELECT bp.current_hp, bp.position, c.id, c.name, c.attack, c.defense, c.element, c.max_hp
          FROM battle_party bp
          JOIN characters c ON bp.character_id = c.id
          WHERE bp.session_id = $1
@@ -312,7 +353,6 @@ exports.getBattleState = async (battleId) => {
         [battleId]
     );
 
-    // ターン数をbattle_historyから取得
     const turnResult = await pool.query(
         `SELECT COUNT(DISTINCT created_at) AS turn FROM battle_history WHERE session_id = $1`,
         [battleId]
@@ -320,12 +360,14 @@ exports.getBattleState = async (battleId) => {
 
     return {
         battleId: session.id,
+        enemyLevel: session.enemy_level || 1,
         party: partyResult.rows,
         enemy: {
             id: session.enemy_id,
             name: session.enemy_name,
+            element: session.enemy_element,
             hp: session.enemy_hp,
-            maxHp: session.enemy_max_hp,
+            maxHp: session.enemy_max_hp || session.enemy_hp,
             bossPhase: session.boss_phase
         },
         turn: parseInt(turnResult.rows[0].turn) || 0

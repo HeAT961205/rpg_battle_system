@@ -6,8 +6,8 @@ const { successResponse, errorResponse } = require('../utils/response');
 // POST /battle/start
 router.post('/start', async (req, res) => {
     try {
-        const { partyId, enemyId } = req.body;
-        const result = await startBattle({ partyId, enemyId });
+        const { partyId, enemyId, enemyLevel } = req.body;
+        const result = await startBattle({ partyId, enemyId, enemyLevel });
         res.json(successResponse(result));
     } catch (err) {
         console.error(err);
@@ -17,10 +17,11 @@ router.post('/start', async (req, res) => {
 });
 
 // POST /battle/action
+// body: { battleId, actions: [{ characterId, skillId }] }
 router.post('/action', async (req, res) => {
     try {
-        const { battleId, skillId } = req.body;
-        const result = await processTurn(battleId, skillId);
+        const { battleId, actions } = req.body;
+        const result = await processTurn(battleId, actions || []);
         res.json(successResponse(result));
     } catch (err) {
         console.error(err);
