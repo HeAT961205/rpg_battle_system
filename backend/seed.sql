@@ -1,10 +1,10 @@
 -- =====================
 -- Characters
 -- =====================
-INSERT INTO characters (id, name, element, role, level, hp, attack, defense, exp, next_exp, max_hp) VALUES
-(1, 'Lead',   'fire',  'warrior', 1, 130, 40, 25, 0, 100, 130),
-(2, 'Fiona',  'water', 'mage',    1, 120, 50, 15,   0, 100, 120),
-(3, 'Dairon', 'wood',  'tank',    1, 150, 35, 40,   0, 100, 150);
+INSERT INTO characters (id, name, element, role, level, hp, attack, defense, exp, next_exp, max_hp, base_hp, base_attack, base_defense) VALUES
+(1, 'Lead',   'fire',  'warrior', 1, 130, 40, 25, 0, 100, 130, 130, 40, 25),
+(2, 'Fiona',  'water', 'mage',    1, 120, 50, 15, 0, 100, 120, 120, 50, 15),
+(3, 'Dairon', 'wood',  'tank',    1, 150, 35, 40, 0, 100, 150, 150, 35, 40);
 
 -- =====================
 -- Enemies
