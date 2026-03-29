@@ -66,7 +66,7 @@ export default function BattlePrepPage() {
             {/* 左上: ホームに戻る */}
             <button
                 onClick={() => router.push('/')}
-                className="absolute top-5 left-5 z-20 text-gray-500 hover:text-white transition-colors text-sm"
+                className="absolute top-5 left-5 z-20 flex items-center gap-2 bg-gray-800 border border-gray-600 rounded-xl px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 hover:text-white transition-all shadow-md"
             >
                 ← ホームに戻る
             </button>
