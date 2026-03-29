@@ -63,20 +63,46 @@ export default function BattlePrepPage() {
                   enemy.element === 'water' ? 'bg-blue-900/5' : 'bg-green-900/5'}`}
             />
 
-            {/* 左上: 階層（難易度）表示 */}
-            <div className="absolute top-5 left-5 z-20 flex items-center gap-2">
+            {/* 左上: ホームに戻る */}
+            <button
+                onClick={() => router.push('/')}
+                className="absolute top-5 left-5 z-20 text-gray-500 hover:text-white transition-colors text-sm"
+            >
+                ← ホームに戻る
+            </button>
+
+            {/* 右上: 階層（難易度）表示 */}
+            <div className="absolute top-5 right-5 z-20 flex items-center gap-2">
+                {/* 増減ボタン */}
+                <div className="flex flex-col gap-1">
+                    <button
+                        onClick={() => setFloor(f => Math.min(MAX_FLOOR, f + 1))}
+                        disabled={floor >= MAX_FLOOR}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-700 border border-gray-600 hover:bg-gray-600 disabled:opacity-30 transition-colors text-xs"
+                    >
+                        ▲
+                    </button>
+                    <button
+                        onClick={() => setFloor(f => Math.max(1, f - 1))}
+                        disabled={floor <= 1}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-700 border border-gray-600 hover:bg-gray-600 disabled:opacity-30 transition-colors text-xs"
+                    >
+                        ▼
+                    </button>
+                </div>
+
                 <div className="relative">
                     <button
                         onClick={() => setFloorOpen(o => !o)}
-                        className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 hover:bg-gray-700 transition-colors"
+                        className="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded-xl px-5 py-3 hover:bg-gray-700 transition-colors"
                     >
                         <span className="text-xs text-gray-400 uppercase tracking-widest">Floor</span>
-                        <span className="text-2xl font-bold text-white tabular-nums w-8 text-center">{floor}</span>
+                        <span className="text-3xl font-bold text-white tabular-nums w-10 text-center">{floor}</span>
                     </button>
 
                     {/* 階層選択ドロップダウン */}
                     {floorOpen && (
-                        <div className="absolute top-full left-0 mt-2 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-30 overflow-hidden">
+                        <div className="absolute top-full right-0 mt-2 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-30 overflow-hidden">
                             <div className="grid grid-cols-5 gap-0.5 p-2 max-h-64 overflow-y-auto w-48">
                                 {Array.from({ length: MAX_FLOOR }, (_, i) => i + 1).map(f => (
                                     <button
@@ -95,48 +121,22 @@ export default function BattlePrepPage() {
                         </div>
                     )}
                 </div>
-
-                {/* 増減ボタン */}
-                <div className="flex flex-col gap-1">
-                    <button
-                        onClick={() => setFloor(f => Math.min(MAX_FLOOR, f + 1))}
-                        disabled={floor >= MAX_FLOOR}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-700 border border-gray-600 hover:bg-gray-600 disabled:opacity-30 transition-colors text-xs"
-                    >
-                        ▲
-                    </button>
-                    <button
-                        onClick={() => setFloor(f => Math.max(1, f - 1))}
-                        disabled={floor <= 1}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-700 border border-gray-600 hover:bg-gray-600 disabled:opacity-30 transition-colors text-xs"
-                    >
-                        ▼
-                    </button>
-                </div>
             </div>
 
-            {/* ホームに戻る */}
-            <button
-                onClick={() => router.push('/')}
-                className="absolute top-5 right-5 z-20 text-gray-500 hover:text-white transition-colors text-sm"
-            >
-                ✕
-            </button>
-
             {/* メイン: 敵表示エリア */}
-            <div className="flex-1 flex items-center justify-center relative px-20 py-8">
+            <div className="flex-1 flex items-center justify-center relative py-8">
 
-                {/* 前の敵（左）*/}
+                {/* 前の敵（左、中央寄り）*/}
                 {enemies.length > 1 && (
-                    <div className="absolute left-16 flex flex-col items-center gap-1 opacity-25 scale-75 pointer-events-none select-none transition-all duration-500">
+                    <div className="absolute left-[12%] flex flex-col items-center gap-1 opacity-25 scale-75 pointer-events-none select-none transition-all duration-500">
                         <span className="text-6xl">{ENEMY_EMOJI[prevEnemy.element] ?? '👾'}</span>
                         <span className="text-xs text-gray-400">{prevEnemy.name}</span>
                     </div>
                 )}
 
-                {/* 次の敵（右）*/}
+                {/* 次の敵（右、中央寄り）*/}
                 {enemies.length > 1 && (
-                    <div className="absolute right-16 flex flex-col items-center gap-1 opacity-25 scale-75 pointer-events-none select-none transition-all duration-500">
+                    <div className="absolute right-[12%] flex flex-col items-center gap-1 opacity-25 scale-75 pointer-events-none select-none transition-all duration-500">
                         <span className="text-6xl">{ENEMY_EMOJI[nextEnemy.element] ?? '👾'}</span>
                         <span className="text-xs text-gray-400">{nextEnemy.name}</span>
                     </div>
@@ -178,10 +178,10 @@ export default function BattlePrepPage() {
                 </div>
             </div>
 
-            {/* 左右スクロール矢印 */}
+            {/* 左右スクロール矢印（中央寄り）*/}
             <button
                 onClick={prev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10
+                className="absolute left-[5%] top-1/2 -translate-y-1/2 z-20 w-11 h-11
                            flex items-center justify-center rounded-full bg-gray-800/80 border border-gray-700
                            hover:bg-gray-700 transition-all text-lg"
             >
@@ -189,7 +189,7 @@ export default function BattlePrepPage() {
             </button>
             <button
                 onClick={next}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10
+                className="absolute right-[5%] top-1/2 -translate-y-1/2 z-20 w-11 h-11
                            flex items-center justify-center rounded-full bg-gray-800/80 border border-gray-700
                            hover:bg-gray-700 transition-all text-lg"
             >
@@ -197,7 +197,7 @@ export default function BattlePrepPage() {
             </button>
 
             {/* ドット（敵インジケーター）*/}
-            <div className="flex justify-center gap-2 pb-4">
+            <div className="flex justify-center gap-2 pb-6">
                 {enemies.map((_, i) => (
                     <button
                         key={i}
@@ -208,14 +208,14 @@ export default function BattlePrepPage() {
                 ))}
             </div>
 
-            {/* 右下: パーティ選択へ */}
-            <div className="absolute bottom-8 right-6 z-20">
+            {/* 右下: 決定ボタン */}
+            <div className="absolute bottom-8 right-8 z-20">
                 <button
                     onClick={goToParty}
-                    className="flex items-center gap-2 bg-red-700 border border-red-600 rounded-xl px-6 py-3
-                               font-semibold hover:bg-red-600 transition-colors shadow-lg shadow-red-900/40"
+                    className="bg-red-700 border border-red-600 rounded-2xl px-12 py-5
+                               text-2xl font-bold hover:bg-red-600 transition-colors shadow-xl shadow-red-900/40 tracking-widest"
                 >
-                    パーティ編成 →
+                    決定
                 </button>
             </div>
         </div>

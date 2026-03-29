@@ -37,6 +37,9 @@ function PartySelectScreen() {
 
     const selectedParty = parties[selectedPartyIndex];
 
+    const prevParty = () => setSelectedPartyIndex(i => (i - 1 + parties.length) % parties.length);
+    const nextParty = () => setSelectedPartyIndex(i => (i + 1) % parties.length);
+
     const startBattle = async () => {
         if (!selectedParty || selectedParty.members.length === 0) {
             setError('パーティにメンバーがいません');
@@ -46,7 +49,6 @@ function PartySelectScreen() {
         setStarting(true);
         setError('');
         try {
-            // パーティメンバーをDBに反映させてからバトル開始
             const memberIds = selectedParty.members
                 .sort((a, b) => a.position - b.position)
                 .map(m => m.character_id);
@@ -84,9 +86,10 @@ function PartySelectScreen() {
             {/* メインコンテンツ */}
             <div className="flex flex-1 overflow-hidden">
 
-                {/* 左: パーティ選択 */}
-                <div className="w-1/2 border-r border-gray-800 flex flex-col p-6 gap-4">
-                    <div className="flex items-center justify-between mb-2">
+                {/* 左: パーティ選択（1パーティ表示） */}
+                <div className="w-1/2 border-r border-gray-800 flex flex-col p-6">
+                    {/* タイトル行 */}
+                    <div className="flex items-center justify-between mb-4">
                         <h2 className="text-sm uppercase tracking-widest text-gray-500">パーティ選択</h2>
                         <button
                             onClick={() => router.push(`/party?from=battle-prep&enemyId=${enemyId}&floor=${floor}`)}
@@ -96,56 +99,83 @@ function PartySelectScreen() {
                         </button>
                     </div>
 
-                    {/* パーティ一覧 */}
-                    <div className="flex flex-col gap-3 flex-1 overflow-y-auto">
-                        {parties.map((party, i) => {
-                            const isSelected = i === selectedPartyIndex;
-                            return (
-                                <button
-                                    key={party.id}
-                                    onClick={() => setSelectedPartyIndex(i)}
-                                    className={`rounded-xl border-2 p-4 text-left transition-all
-                                        ${isSelected
-                                            ? 'border-blue-500 bg-blue-900/20 shadow-lg shadow-blue-900/20'
-                                            : 'border-gray-700 bg-gray-800/40 hover:border-gray-500'
-                                        }`}
-                                >
-                                    {/* パーティ名 */}
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="font-bold">{party.name}</span>
-                                        <span className="text-xs text-gray-500">{party.members.length}人</span>
-                                    </div>
+                    {/* パーティ表示 + 左右ナビ */}
+                    <div className="flex items-center gap-3 flex-1">
+                        {/* 左矢印 */}
+                        <button
+                            onClick={prevParty}
+                            className="w-9 h-9 shrink-0 flex items-center justify-center rounded-full
+                                       bg-gray-800 border border-gray-700 hover:bg-gray-700 transition-all text-sm"
+                        >
+                            ◀
+                        </button>
 
-                                    {/* メンバー一覧 */}
-                                    {party.members.length > 0 ? (
-                                        <div className="flex flex-col gap-2">
-                                            {party.members
-                                                .sort((a, b) => a.position - b.position)
-                                                .map(m => (
-                                                    <div key={m.character_id} className="flex items-center gap-3">
-                                                        {/* 属性 */}
-                                                        <span className="text-lg w-6 text-center shrink-0">
-                                                            {ELEMENT_ICON[m.element]}
-                                                        </span>
-                                                        {/* アイコン */}
-                                                        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center text-base shrink-0
-                                                            ${ELEMENT_BORDER[m.element]} bg-gray-800`}>
-                                                            {ELEMENT_ICON[m.element]}
-                                                        </div>
-                                                        {/* レベル・名前 */}
-                                                        <div className="flex flex-col">
-                                                            <span className="text-xs text-gray-500">Lv.{m.level}</span>
-                                                            <span className="text-sm font-medium">{m.name}</span>
-                                                        </div>
+                        {/* パーティボックス */}
+                        {selectedParty ? (
+                            <div className="flex-1 rounded-xl border-2 border-blue-500 bg-blue-900/10 p-5 shadow-lg shadow-blue-900/20 min-h-[260px] flex flex-col">
+                                {/* パーティ名 */}
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="font-bold text-lg">{selectedParty.name}</span>
+                                    <span className="text-xs text-gray-500">{selectedParty.members.length} / 3人</span>
+                                </div>
+
+                                {/* メンバー一覧 */}
+                                <div className="flex flex-col gap-4 flex-1 justify-center">
+                                    {selectedParty.members.length > 0 ? (
+                                        selectedParty.members
+                                            .sort((a, b) => a.position - b.position)
+                                            .map(m => (
+                                                <div key={m.character_id} className="flex items-center gap-3">
+                                                    {/* 属性 */}
+                                                    <span className="text-xl w-7 text-center shrink-0">
+                                                        {ELEMENT_ICON[m.element]}
+                                                    </span>
+                                                    {/* アイコン */}
+                                                    <div className={`w-11 h-11 rounded-xl border-2 flex items-center justify-center text-xl shrink-0
+                                                        ${ELEMENT_BORDER[m.element]} bg-gray-800`}>
+                                                        {ELEMENT_ICON[m.element]}
                                                     </div>
-                                                ))}
-                                        </div>
+                                                    {/* レベル・名前 */}
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs text-gray-500 leading-none mb-0.5">Lv.{m.level}</span>
+                                                        <span className="text-base font-semibold">{m.name}</span>
+                                                    </div>
+                                                </div>
+                                            ))
                                     ) : (
-                                        <p className="text-xs text-gray-600 text-center py-2">メンバー未編成</p>
+                                        <p className="text-gray-600 text-sm text-center">メンバー未編成</p>
                                     )}
-                                </button>
-                            );
-                        })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 rounded-xl border border-dashed border-gray-700 flex items-center justify-center min-h-[260px]">
+                                <p className="text-gray-600 text-sm">パーティなし</p>
+                            </div>
+                        )}
+
+                        {/* 右矢印 */}
+                        <button
+                            onClick={nextParty}
+                            className="w-9 h-9 shrink-0 flex items-center justify-center rounded-full
+                                       bg-gray-800 border border-gray-700 hover:bg-gray-700 transition-all text-sm"
+                        >
+                            ▶
+                        </button>
+                    </div>
+
+                    {/* ナビゲーションドット */}
+                    <div className="flex justify-center gap-3 mt-5">
+                        {parties.map((_, i) => (
+                            <button
+                                key={i}
+                                onClick={() => setSelectedPartyIndex(i)}
+                                className={`w-3 h-3 rounded-full border-2 transition-all
+                                    ${i === selectedPartyIndex
+                                        ? 'bg-white border-white scale-110'
+                                        : 'bg-transparent border-gray-600 hover:border-gray-400'
+                                    }`}
+                            />
+                        ))}
                     </div>
                 </div>
 
