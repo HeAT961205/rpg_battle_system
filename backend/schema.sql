@@ -213,7 +213,8 @@ CREATE TABLE public.enemies (
     defense integer NOT NULL,
     exp_reward integer DEFAULT 50,
     max_hp integer,
-    is_boss boolean DEFAULT false
+    is_boss boolean DEFAULT false,
+    flavor_text text
 );
 
 

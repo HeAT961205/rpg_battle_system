@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api, Character, Party, PartyMember, Skill } from '@/lib/api';
 import CharacterGrid from '@/components/CharacterGrid';
 
@@ -154,8 +154,13 @@ function MemberSlot({
 }
 
 // --- メインページ ---
-export default function PartyPage() {
+function PartyContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const from = searchParams.get('from');
+    const backUrl = from === 'battle-prep'
+        ? `/battle-prep/party?enemyId=${searchParams.get('enemyId') ?? ''}&floor=${searchParams.get('floor') ?? '1'}`
+        : '/';
     const [parties, setParties] = useState<Party[]>([]);
     const [allCharacters, setAllCharacters] = useState<Character[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -266,10 +271,10 @@ export default function PartyPage() {
             {/* ヘッダー */}
             <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-4">
                 <button
-                    onClick={() => router.push('/')}
+                    onClick={() => router.push(backUrl)}
                     className="text-gray-400 hover:text-white transition-colors text-sm"
                 >
-                    ← ホームに戻る
+                    {from === 'battle-prep' ? '← 戻る' : '← ホームに戻る'}
                 </button>
                 <h1 className="text-xl font-bold tracking-wide">👥 パーティ編成</h1>
             </div>
@@ -370,5 +375,17 @@ export default function PartyPage() {
                 />
             )}
         </div>
+    );
+}
+
+export default function PartyPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-gray-950 text-white">
+                <p className="animate-pulse text-gray-400">読み込み中...</p>
+            </div>
+        }>
+            <PartyContent />
+        </Suspense>
     );
 }

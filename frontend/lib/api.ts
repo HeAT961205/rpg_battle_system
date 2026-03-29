@@ -42,6 +42,7 @@ export type Enemy = {
     defense: number;
     exp_reward: number;
     is_boss: boolean;
+    flavor_text: string | null;
 };
 
 export type Skill = {
