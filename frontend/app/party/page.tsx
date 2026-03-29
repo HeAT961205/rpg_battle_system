@@ -2,60 +2,252 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, Character, PartyMember } from '@/lib/api';
+import { api, Character, Party, PartyMember, Skill } from '@/lib/api';
+import CharacterGrid from '@/components/CharacterGrid';
 
-const ELEMENT_LABEL: Record<string, string> = { fire: '🔥 炎', water: '💧 水', wood: '🌿 木' };
-const ROLE_LABEL: Record<string, string> = { warrior: '戦士', mage: '魔法使い', tank: 'タンク' };
+const ELEMENT_LABEL: Record<string, string> = { fire: '炎', water: '水', wood: '木' };
+const ELEMENT_COLOR: Record<string, string> = {
+    fire:  'bg-red-900/30 border-red-700/60 text-red-300',
+    water: 'bg-blue-900/30 border-blue-700/60 text-blue-300',
+    wood:  'bg-green-900/30 border-green-700/60 text-green-300',
+};
+const ELEMENT_ICON: Record<string, string> = { fire: '🔥', water: '💧', wood: '🌿' };
 
+const MAX_PARTIES = 5;
+
+// --- キャラクター選択モーダル ---
+function CharacterSelectModal({
+    characters,
+    currentId,
+    onSelect,
+    onClose,
+}: {
+    characters: Character[];
+    currentId: number | null;
+    onSelect: (char: Character) => void;
+    onClose: () => void;
+}) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[480px] shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold">キャラクターを選択</h2>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-white transition-colors text-xl leading-none"
+                    >
+                        ✕
+                    </button>
+                </div>
+                <CharacterGrid
+                    characters={characters}
+                    selectedId={currentId}
+                    onSelect={(char) => { onSelect(char); onClose(); }}
+                />
+            </div>
+        </div>
+    );
+}
+
+// --- パーティメンバー1枠 ---
+function MemberSlot({
+    member,
+    skills,
+    onClickIcon,
+    onRemove,
+}: {
+    member: PartyMember | null;
+    skills: Skill[];
+    onClickIcon: () => void;
+    onRemove: () => void;
+}) {
+    return (
+        <div className="flex rounded-xl border border-gray-700 bg-gray-800/50 overflow-hidden min-h-[120px]">
+            {/* 属性セクション */}
+            <div className={`w-14 flex-shrink-0 flex flex-col items-center justify-center border-r border-gray-700
+                ${member ? ELEMENT_COLOR[member.element] : 'bg-gray-800/30'}`}>
+                {member ? (
+                    <>
+                        <span className="text-2xl">{ELEMENT_ICON[member.element]}</span>
+                        <span className="text-[10px] mt-1 font-bold">{ELEMENT_LABEL[member.element]}</span>
+                    </>
+                ) : (
+                    <span className="text-gray-700 text-xs">—</span>
+                )}
+            </div>
+
+            {/* キャラクターアイコンセクション */}
+            <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center border-r border-gray-700 p-2 gap-1">
+                <button
+                    onClick={onClickIcon}
+                    className={`w-14 h-14 rounded-lg border-2 flex items-center justify-center transition-all
+                        ${member
+                            ? `${ELEMENT_COLOR[member.element]} hover:brightness-125`
+                            : 'border-dashed border-gray-600 bg-gray-800/40 hover:border-gray-400'
+                        }`}
+                >
+                    {member
+                        ? <span className="text-2xl">{ELEMENT_ICON[member.element]}</span>
+                        : <span className="text-gray-600 text-xl">+</span>
+                    }
+                </button>
+                {member ? (
+                    <>
+                        <span className="text-[10px] text-gray-300 font-medium truncate w-full text-center">{member.name}</span>
+                        <span className="text-[9px] text-gray-500">Lv.{member.level}</span>
+                    </>
+                ) : (
+                    <span className="text-[9px] text-gray-600">空きスロット</span>
+                )}
+            </div>
+
+            {/* スキル一覧セクション */}
+            <div className="flex-1 border-r border-gray-700 p-3 flex flex-col justify-center gap-1">
+                <p className="text-[9px] text-gray-600 uppercase tracking-widest mb-1">Skills</p>
+                {Array.from({ length: 4 }, (_, i) => {
+                    const skill = skills[i];
+                    return (
+                        <div key={i} className="text-xs text-gray-500">
+                            {skill
+                                ? <span className="text-gray-300">{skill.name}</span>
+                                : <span className="text-gray-700">---</span>
+                            }
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* ステータスセクション */}
+            <div className="w-28 flex-shrink-0 p-3 flex flex-col justify-center gap-0.5">
+                {member ? (
+                    <>
+                        <p className="text-[9px] text-gray-600 uppercase tracking-widest mb-1">Stats</p>
+                        <div className="flex justify-between text-[10px]">
+                            <span className="text-gray-500">HP</span>
+                            <span className="text-green-400 font-bold">{member.max_hp}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                            <span className="text-gray-500">SP</span>
+                            <span className="text-blue-400 font-bold">{member.max_sp}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                            <span className="text-gray-500">ATK</span>
+                            <span className="text-orange-400 font-bold">{member.attack}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                            <span className="text-gray-500">DEF</span>
+                            <span className="text-cyan-400 font-bold">{member.defense}</span>
+                        </div>
+                        <button
+                            onClick={onRemove}
+                            className="mt-2 text-[9px] text-gray-600 hover:text-red-400 transition-colors"
+                        >
+                            ✕ 外す
+                        </button>
+                    </>
+                ) : (
+                    <p className="text-[10px] text-gray-700 text-center">未編成</p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// --- メインページ ---
 export default function PartyPage() {
     const router = useRouter();
-    const [characters, setCharacters] = useState<Character[]>([]);
-    const [selected, setSelected] = useState<number[]>([]);
-    const [message, setMessage] = useState('');
+    const [parties, setParties] = useState<Party[]>([]);
+    const [allCharacters, setAllCharacters] = useState<Character[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [localMembers, setLocalMembers] = useState<(PartyMember | null)[]>([null, null, null]);
+    const [localName, setLocalName] = useState('');
+    const [skillsMap, setSkillsMap] = useState<Record<number, Skill[]>>({});
     const [loading, setLoading] = useState(true);
-    const [resetting, setResetting] = useState<number | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState('');
+    // モーダル: どのスロット(0,1,2)を編集中か
+    const [modalSlot, setModalSlot] = useState<number | null>(null);
 
-    const load = async () => {
-        const [chars, party] = await Promise.all([
-            api.getCharacters(),
-            api.getParty(),
-        ]);
-        setCharacters(chars);
-        setSelected(
-            party.members
-                .sort((a, b) => a.position - b.position)
-                .map((m: PartyMember) => m.id)
-        );
-        setLoading(false);
+    // 全データ読み込み
+    useEffect(() => {
+        Promise.all([api.getParties(), api.getCharacters()]).then(([partyData, chars]) => {
+            const list = partyData.parties;
+            setParties(list);
+            setAllCharacters(chars);
+            loadPartyIntoLocal(list[0]);
+            setLoading(false);
+        });
+    }, []);
+
+    // パーティ切り替え時にローカル状態を更新
+    const loadPartyIntoLocal = (party: Party) => {
+        const slots: (PartyMember | null)[] = [null, null, null];
+        party.members.forEach(m => {
+            const pos = m.position - 1;
+            if (pos >= 0 && pos < 3) slots[pos] = m;
+        });
+        setLocalMembers(slots);
+        setLocalName(party.name);
     };
 
-    useEffect(() => { load(); }, []);
+    // スキル取得（キャラクターIDをキーにキャッシュ）
+    const fetchSkillsForChar = async (characterId: number) => {
+        if (skillsMap[characterId]) return;
+        try {
+            const skills = await api.getCharacterSkills(characterId);
+            setSkillsMap(prev => ({ ...prev, [characterId]: skills }));
+        } catch {
+            setSkillsMap(prev => ({ ...prev, [characterId]: [] }));
+        }
+    };
 
-    const toggle = (id: number) => {
-        setSelected(prev => {
-            if (prev.includes(id)) return prev.filter(x => x !== id);
-            if (prev.length >= 3) return prev;
-            return [...prev, id];
+    useEffect(() => {
+        localMembers.forEach(m => {
+            if (m) fetchSkillsForChar(m.character_id ?? m.id);
         });
+    }, [localMembers]);
+
+    const switchParty = (newIndex: number) => {
+        setCurrentIndex(newIndex);
+        loadPartyIntoLocal(parties[newIndex]);
         setMessage('');
     };
 
-    const save = async () => {
-        if (selected.length === 0) { setMessage('1人以上選択してください'); return; }
-        await api.updateParty(selected);
-        setMessage('パーティを保存しました');
+    const handleSelectCharacter = (slot: number, char: Character) => {
+        setLocalMembers(prev => {
+            const next = [...prev] as (PartyMember | null)[];
+            // 同じキャラが他のスロットにいれば外す
+            const existingSlot = next.findIndex(m => m && (m.character_id ?? m.id) === char.id);
+            if (existingSlot !== -1 && existingSlot !== slot) next[existingSlot] = null;
+            next[slot] = { ...char, character_id: char.id, position: slot + 1 };
+            return next;
+        });
     };
 
-    const resetLevel = async (characterId: number) => {
-        setResetting(characterId);
+    const handleRemoveMember = (slot: number) => {
+        setLocalMembers(prev => {
+            const next = [...prev] as (PartyMember | null)[];
+            next[slot] = null;
+            return next;
+        });
+    };
+
+    const save = async () => {
+        setSaving(true);
+        setMessage('');
         try {
-            await api.resetCharacterLevel(characterId);
-            await load();
-            setMessage('レベルをリセットしました');
+            const memberIds = localMembers.filter(Boolean).map(m => m!.character_id ?? m!.id);
+            const partyId = parties[currentIndex].id;
+            await api.updateParty(partyId, memberIds, localName);
+            // ローカルのparties状態も更新
+            setParties(prev => prev.map((p, i) =>
+                i === currentIndex ? { ...p, name: localName } : p
+            ));
+            setMessage('保存しました');
         } catch (e) {
             setMessage((e as Error).message);
         }
-        setResetting(null);
+        setSaving(false);
     };
 
     if (loading) return (
@@ -64,94 +256,119 @@ export default function PartyPage() {
         </div>
     );
 
+    // モーダルで選択中の現在のキャラID
+    const currentModalCharId = modalSlot !== null && localMembers[modalSlot]
+        ? (localMembers[modalSlot]!.character_id ?? localMembers[modalSlot]!.id)
+        : null;
+
     return (
-        <div className="min-h-screen bg-gray-950 text-white">
-            <div className="mx-auto max-w-xl px-4 py-8">
+        <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+            {/* ヘッダー */}
+            <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-4">
                 <button
                     onClick={() => router.push('/')}
-                    className="mb-6 flex items-center gap-1 text-gray-400 hover:text-white transition-colors text-sm"
+                    className="text-gray-400 hover:text-white transition-colors text-sm"
                 >
                     ← ホームに戻る
                 </button>
-                <h1 className="mb-2 text-3xl font-bold tracking-wide">👥 パーティ編成</h1>
-                <p className="mb-6 text-gray-500 text-sm">キャラクターを選択（最大3人）</p>
-
-                <div className="flex flex-col gap-3 mb-8">
-                    {characters.map(c => {
-                        const isSelected = selected.includes(c.id);
-                        const position = selected.indexOf(c.id) + 1;
-                        return (
-                            <div
-                                key={c.id}
-                                className={`rounded-xl border-2 transition-all ${
-                                    isSelected
-                                        ? 'border-blue-500 bg-blue-900/20 shadow-lg shadow-blue-900/20'
-                                        : 'border-gray-700 bg-gray-800/60'
-                                }`}
-                            >
-                                <button
-                                    onClick={() => toggle(c.id)}
-                                    className="w-full flex items-center justify-between px-5 py-4 text-left"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        {/* アイコンプレースホルダー */}
-                                        <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-2xl shrink-0">
-                                            {c.element === 'fire' ? '🔥' : c.element === 'water' ? '💧' : '🌿'}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-bold text-lg">{c.name}</span>
-                                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">
-                                                    Lv.{c.level}
-                                                </span>
-                                                <span className="text-xs text-gray-400">
-                                                    EXP {c.exp} / {c.next_exp}
-                                                </span>
-                                            </div>
-                                            <div className="text-xs text-gray-400 mt-0.5">
-                                                {ELEMENT_LABEL[c.element]} / {ROLE_LABEL[c.role] ?? c.role}
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                HP {c.max_hp} / ATK {c.attack} / DEF {c.defense}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {isSelected && (
-                                        <span className="w-8 h-8 rounded-full bg-blue-500 text-white font-bold text-sm flex items-center justify-center shrink-0">
-                                            {position}
-                                        </span>
-                                    )}
-                                </button>
-
-                                {/* レベルリセットボタン */}
-                                {c.level > 1 && (
-                                    <div className="px-5 pb-3 flex justify-end">
-                                        <button
-                                            onClick={() => resetLevel(c.id)}
-                                            disabled={resetting === c.id}
-                                            className="text-xs px-3 py-1 rounded-lg bg-gray-700 text-gray-400 hover:bg-red-900/50 hover:text-red-300 border border-gray-600 hover:border-red-700 transition-all disabled:opacity-50"
-                                        >
-                                            {resetting === c.id ? 'リセット中...' : '↺ Lv.1にリセット'}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                <button
-                    onClick={save}
-                    className="w-full rounded-xl bg-blue-700 border border-blue-600 py-4 text-lg font-semibold hover:bg-blue-600 transition-colors shadow-lg"
-                >
-                    保存する
-                </button>
-                {message && (
-                    <p className={`mt-4 text-center text-sm ${message.includes('エラー') || message.includes('選択') ? 'text-red-400' : 'text-green-400'}`}>
-                        {message}
-                    </p>
-                )}
+                <h1 className="text-xl font-bold tracking-wide">👥 パーティ編成</h1>
             </div>
+
+            {/* メインエリア */}
+            <div className="flex flex-1 relative">
+                {/* 左矢印 */}
+                <button
+                    onClick={() => currentIndex > 0 && switchParty(currentIndex - 1)}
+                    disabled={currentIndex === 0}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10
+                               flex items-center justify-center rounded-full bg-gray-800 border border-gray-700
+                               hover:bg-gray-700 disabled:opacity-20 transition-all text-xl"
+                >
+                    ◀
+                </button>
+
+                {/* 右矢印 */}
+                <button
+                    onClick={() => currentIndex < MAX_PARTIES - 1 && switchParty(currentIndex + 1)}
+                    disabled={currentIndex === MAX_PARTIES - 1}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10
+                               flex items-center justify-center rounded-full bg-gray-800 border border-gray-700
+                               hover:bg-gray-700 disabled:opacity-20 transition-all text-xl"
+                >
+                    ▶
+                </button>
+
+                {/* コンテンツ */}
+                <div className="flex-1 mx-14 px-4 py-6 flex flex-col">
+                    {/* パーティ名 */}
+                    <div className="flex items-center gap-3 mb-6">
+                        <input
+                            type="text"
+                            value={localName}
+                            onChange={e => setLocalName(e.target.value)}
+                            maxLength={20}
+                            className="text-xl font-bold bg-transparent border-b border-gray-700
+                                       focus:border-blue-500 outline-none text-white
+                                       placeholder-gray-600 transition-colors"
+                            placeholder="パーティ名を入力"
+                        />
+                        <span className="text-xs text-gray-600">Party {currentIndex + 1} / {MAX_PARTIES}</span>
+                    </div>
+
+                    {/* メンバースロット × 3 */}
+                    <div className="flex flex-col gap-3 mb-6">
+                        {[0, 1, 2].map(slot => (
+                            <MemberSlot
+                                key={slot}
+                                member={localMembers[slot]}
+                                skills={skillsMap[localMembers[slot]?.character_id ?? localMembers[slot]?.id ?? -1] ?? []}
+                                onClickIcon={() => setModalSlot(slot)}
+                                onRemove={() => handleRemoveMember(slot)}
+                            />
+                        ))}
+                    </div>
+
+                    {/* 保存ボタン */}
+                    <button
+                        onClick={save}
+                        disabled={saving}
+                        className="w-full rounded-xl bg-blue-700 border border-blue-600 py-3 font-semibold
+                                   hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                    >
+                        {saving ? '保存中...' : '💾 保存する'}
+                    </button>
+                    {message && (
+                        <p className={`mt-3 text-center text-sm ${message.includes('エラー') || message.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+                            {message}
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* ナビゲーションドット */}
+            <div className="flex items-center justify-center gap-3 py-5 border-t border-gray-800">
+                {parties.map((_, i) => (
+                    <button
+                        key={i}
+                        onClick={() => switchParty(i)}
+                        className={`w-3 h-3 rounded-full border-2 transition-all
+                            ${i === currentIndex
+                                ? 'bg-white border-white scale-110'
+                                : 'bg-transparent border-gray-600 hover:border-gray-400'
+                            }`}
+                    />
+                ))}
+            </div>
+
+            {/* キャラクター選択モーダル */}
+            {modalSlot !== null && (
+                <CharacterSelectModal
+                    characters={allCharacters}
+                    currentId={currentModalCharId}
+                    onSelect={(char) => handleSelectCharacter(modalSlot, char)}
+                    onClose={() => setModalSlot(null)}
+                />
+            )}
         </div>
     );
 }

@@ -24,16 +24,17 @@ export default function BattlePrepPage() {
 
     useEffect(() => {
         const load = async () => {
-            const [chars, party, enms] = await Promise.all([
+            const [chars, partyData, enms] = await Promise.all([
                 api.getCharacters(),
-                api.getParty(),
+                api.getParties(),
                 api.getEnemies(),
             ]);
             setCharacters(chars);
+            const firstParty = partyData.parties[0];
             setSelected(
-                party.members
-                    .sort((a, b) => a.position - b.position)
-                    .map((m: PartyMember) => m.id)
+                firstParty.members
+                    .sort((a: PartyMember, b: PartyMember) => a.position - b.position)
+                    .map((m: PartyMember) => m.character_id)
             );
             setEnemies(enms);
             setLoading(false);
@@ -55,7 +56,7 @@ export default function BattlePrepPage() {
         if (!selectedEnemy) { setError('敵を選択してください'); return; }
         setStarting(true);
         try {
-            await api.updateParty(selected);
+            await api.updateParty(1, selected);
             const res = await api.startBattle(1, selectedEnemy, enemyLevel);
             router.push(`/battle?battleId=${res.battleId}`);
         } catch (e) {

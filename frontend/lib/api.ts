@@ -18,10 +18,18 @@ export type Character = {
     level: number;
     hp: number;
     max_hp: number;
+    sp: number;
+    max_sp: number;
     attack: number;
     defense: number;
     exp: number;
     next_exp: number;
+};
+
+export type Party = {
+    id: number;
+    name: string;
+    members: PartyMember[];
 };
 
 export type Enemy = {
@@ -44,7 +52,7 @@ export type Skill = {
     mp_cost: number;
 };
 
-export type PartyMember = Character & { position: number };
+export type PartyMember = Character & { character_id: number; position: number };
 
 export type BattleState = {
     battleId: number;
@@ -76,16 +84,16 @@ export type BattleResult = {
 export const api = {
     getCharacters: () => request<Character[]>('/characters'),
     getEnemies: () => request<Enemy[]>('/enemies'),
-    getParty: () => request<{ members: PartyMember[] }>('/party'),
+    getParties: () => request<{ parties: Party[] }>('/party'),
     getSkills: () => request<Skill[]>('/skills'),
     getCharacterSkills: (characterId: number) =>
         request<Skill[]>(`/skills/character/${characterId}`),
     resetCharacterLevel: (characterId: number) =>
         request<Character>(`/characters/${characterId}/reset`, { method: 'POST' }),
-    updateParty: (members: number[]) =>
+    updateParty: (partyId: number, members: number[], name?: string) =>
         request<{ message: string }>('/party', {
             method: 'POST',
-            body: JSON.stringify({ members }),
+            body: JSON.stringify({ partyId, members, ...(name !== undefined && { name }) }),
         }),
     startBattle: (partyId: number, enemyId: number, enemyLevel: number = 1) =>
         request<{ battleId: number; enemyLevel: number; party: PartyMember[]; enemy: Enemy }>('/battle/start', {

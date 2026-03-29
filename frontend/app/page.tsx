@@ -16,6 +16,12 @@ export default function Home() {
                 {/* ナビゲーション */}
                 <div className="flex flex-col gap-4 w-72">
                     <Link
+                        href="/character-list"
+                        className="rounded-xl bg-gray-800 border border-gray-700 px-6 py-4 text-center text-lg font-semibold hover:bg-gray-700 hover:border-gray-500 transition-all shadow-lg"
+                    >
+                        📋 キャラクターリスト
+                    </Link>
+                    <Link
                         href="/party"
                         className="rounded-xl bg-gray-800 border border-gray-700 px-6 py-4 text-center text-lg font-semibold hover:bg-gray-700 hover:border-gray-500 transition-all shadow-lg"
                     >

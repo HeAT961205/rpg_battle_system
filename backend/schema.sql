@@ -168,7 +168,10 @@ CREATE TABLE public.characters (
     max_hp integer,
     base_hp integer,
     base_attack integer,
-    base_defense integer
+    base_defense integer,
+    sp integer DEFAULT 80,
+    max_sp integer DEFAULT 80,
+    base_sp integer DEFAULT 80
 );
 
 
