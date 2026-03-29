@@ -72,7 +72,7 @@ function PartySelectScreen() {
             {/* ヘッダー */}
             <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-4">
                 <button
-                    onClick={() => router.back()}
+                    onClick={() => router.push('/battle-prep')}
                     className="text-gray-400 hover:text-white transition-colors text-sm"
                 >
                     ← 戻る
