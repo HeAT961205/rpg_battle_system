@@ -2,15 +2,10 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api, BattleState, TurnResult, BattleResult, Skill, BattleAction } from '@/lib/api';
+import { api, BattleState, TurnResult, BattleResult, LevelUp, Character, Skill, BattleAction } from '@/lib/api';
 
 const ELEMENT_LABEL: Record<string, string> = { fire: '🔥', water: '💧', wood: '🌿' };
 
-// メンバーごとの行動選択状態
-type MemberAction = {
-    characterId: number;
-    skillId: number | null; // null = 通常攻撃
-};
 
 function BattleScreen() {
     const router = useRouter();
@@ -20,6 +15,8 @@ function BattleScreen() {
     const [state, setState] = useState<BattleState | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [result, setResult] = useState<BattleResult | null>(null);
+    const [levelUps, setLevelUps] = useState<LevelUp[]>([]);
+    const [resultCharacters, setResultCharacters] = useState<Character[]>([]);
     const [loading, setLoading] = useState(true);
     const [acting, setActing] = useState(false);
 
@@ -80,7 +77,13 @@ function BattleScreen() {
                 setActions(reset);
             }
             if (turn.isBattleEnd) {
-                const res = await api.getBattleResult(battleId);
+                setLevelUps(turn.levelUps ?? []);
+                const [res, allChars] = await Promise.all([
+                    api.getBattleResult(battleId),
+                    api.getCharacters(),
+                ]);
+                const partyIds = new Set(state.party.map(m => m.id));
+                setResultCharacters(allChars.filter(c => partyIds.has(c.id)));
                 setResult(res);
             }
         } catch (e) {
@@ -251,16 +254,73 @@ function BattleScreen() {
             {/* リザルトポップアップ */}
             {result && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50 backdrop-blur-sm">
-                    <div className="rounded-2xl bg-gray-800 border border-gray-600 p-10 text-center w-80 shadow-2xl">
-                        <h2 className={`mb-2 text-5xl font-bold tracking-wider ${result.result === 'victory' ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {result.result === 'victory' ? 'VICTORY' : 'DEFEAT'}
-                        </h2>
-                        <p className="mb-6 text-gray-400 text-sm">
-                            {result.result === 'victory' ? '勝利！敵を倒した！' : '全滅... またの挑戦を。'}
-                        </p>
-                        <p className="mb-8 text-gray-300">
-                            獲得EXP: <span className="text-white font-bold text-xl">{result.expGained}</span>
-                        </p>
+                    <div className="rounded-2xl bg-gray-800 border border-gray-600 p-8 w-[420px] shadow-2xl flex flex-col gap-5">
+
+                        {/* タイトル */}
+                        <div className="text-center">
+                            <h2 className={`text-5xl font-bold tracking-wider mb-1 ${result.result === 'victory' ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {result.result === 'victory' ? 'VICTORY' : 'DEFEAT'}
+                            </h2>
+                            <p className="text-gray-400 text-sm">
+                                {result.result === 'victory' ? '勝利！敵を倒した！' : '全滅... またの挑戦を。'}
+                            </p>
+                        </div>
+
+                        {/* キャラクターEXP一覧（勝利時） */}
+                        {result.result === 'victory' && resultCharacters.length > 0 && (
+                            <div className="flex flex-col gap-3">
+                                {state!.party
+                                    .slice()
+                                    .sort((a, b) => a.position - b.position)
+                                    .map(pm => {
+                                        const char = resultCharacters.find(c => c.id === pm.id);
+                                        if (!char) return null;
+                                        const isAlive = pm.current_hp > 0;
+                                        const expRate = char.next_exp > 0 ? Math.min(char.exp / char.next_exp, 1) : 0;
+                                        const didLevelUp = levelUps.some(lu => lu.name === char.name);
+                                        return (
+                                            <div key={char.id} className={`rounded-xl border p-3 ${isAlive ? 'border-gray-600 bg-gray-700/50' : 'border-gray-700 bg-gray-800/30 opacity-50'}`}>
+                                                {/* アイコン + 名前 + レベル */}
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-xl shrink-0">
+                                                        {ELEMENT_LABEL[char.element]}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-semibold text-sm">{char.name}</span>
+                                                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${didLevelUp ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-600' : 'text-gray-400'}`}>
+                                                                Lv.{char.level}
+                                                            </span>
+                                                            {didLevelUp && <span className="text-yellow-400 text-xs">⬆ Level Up!</span>}
+                                                        </div>
+                                                    </div>
+                                                    {/* 取得EXP */}
+                                                    {isAlive && (
+                                                        <span className="text-green-400 text-xs font-bold shrink-0">
+                                                            +{result.expGained} EXP
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {/* EXPバー */}
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 h-2 rounded-full bg-gray-600 overflow-hidden">
+                                                        <div
+                                                            className="h-2 rounded-full bg-blue-500 transition-all duration-700"
+                                                            style={{ width: `${expRate * 100}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
+                                                        {char.exp} / {char.next_exp}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                }
+                            </div>
+                        )}
+
+                        {/* ホームに戻る */}
                         <button
                             onClick={() => router.push('/')}
                             className="w-full rounded-xl bg-blue-600 py-3 text-lg font-semibold hover:bg-blue-500 transition-colors"

@@ -67,6 +67,11 @@ export type BattleAction = {
     skillId: number | null;
 };
 
+export type LevelUp = {
+    name: string;
+    newLevel: number;
+};
+
 export type TurnResult = {
     damage: number;
     enemyHp: number;
@@ -75,6 +80,8 @@ export type TurnResult = {
     isBattleEnd: boolean;
     logs: string[];
     party: { character_id: number; name: string; current_hp: number }[];
+    expGained: number;
+    levelUps: LevelUp[];
 };
 
 export type BattleResult = {

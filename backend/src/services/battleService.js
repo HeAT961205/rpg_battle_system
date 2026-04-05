@@ -294,13 +294,63 @@ exports.processTurn = async (battleId, actions = []) => {
             );
         }
 
+        // 勝利時: 経験値付与・レベルアップ処理
+        let scaledExp = 0;
+        const levelUps = [];
+
+        if (result === 'victory') {
+            const enemyLevel = session.enemy_level || 1;
+            scaledExp = Math.round(session.exp_reward * Math.pow(1.1, enemyLevel - 1));
+
+            for (const member of aliveMembers) {
+                const charResult = await client.query(
+                    `SELECT level, exp, next_exp, base_hp, base_attack, base_defense
+                     FROM characters WHERE id = $1`,
+                    [member.character_id]
+                );
+                const char = charResult.rows[0];
+
+                let newExp = char.exp + scaledExp;
+                let newLevel = char.level;
+
+                // レベルアップ（複数回分も処理）
+                while (newExp >= char.next_exp && newLevel < 99) {
+                    newExp -= Math.floor(100 * Math.pow(newLevel, 1.5));
+                    newLevel++;
+                }
+                const newNextExp = Math.floor(100 * Math.pow(newLevel, 1.5));
+
+                if (newLevel > char.level) {
+                    const newMaxHp = Math.round(char.base_hp * Math.pow(1.1, newLevel - 1));
+                    const newAttack = Math.round(char.base_attack * Math.pow(1.1, newLevel - 1));
+                    const newDefense = Math.round(char.base_defense * Math.pow(1.1, newLevel - 1));
+                    await client.query(
+                        `UPDATE characters
+                         SET level = $1, exp = $2, next_exp = $3,
+                             max_hp = $4, hp = $4, attack = $5, defense = $6
+                         WHERE id = $7`,
+                        [newLevel, newExp, newNextExp, newMaxHp, newAttack, newDefense, member.character_id]
+                    );
+                    levelUps.push({ name: member.name, newLevel });
+                    logs.push(`${member.name} がレベル ${newLevel} にアップ！`);
+                } else {
+                    await client.query(
+                        `UPDATE characters SET exp = $1 WHERE id = $2`,
+                        [newExp, member.character_id]
+                    );
+                }
+            }
+        }
+
         // battle_history保存
         for (const member of party) {
+            const memberAlive = member.current_hp > 0;
             await client.query(
                 `INSERT INTO battle_history
                  (session_id, character_id, enemy_id, enemy_damage, player_damage, exp_gained, result)
                  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                [battleId, member.character_id, session.enemy_id, enemyDamage, totalPlayerDamage, 0, result]
+                [battleId, member.character_id, session.enemy_id, enemyDamage, totalPlayerDamage,
+                 memberAlive ? scaledExp : 0, result]
             );
         }
 
@@ -313,7 +363,9 @@ exports.processTurn = async (battleId, actions = []) => {
             isEnemyDefeated: enemyHp <= 0,
             isBattleEnd: result !== 'ongoing',
             logs,
-            party
+            party,
+            expGained: scaledExp,
+            levelUps,
         };
 
     } catch (err) {
@@ -379,10 +431,11 @@ exports.getBattleState = async (battleId) => {
 exports.getBattleResult = async (battleId) => {
 
     const historyResult = await pool.query(
-        `SELECT result, exp_gained
+        `SELECT result, COALESCE(MAX(exp_gained), 0) AS exp_gained
          FROM battle_history
          WHERE session_id = $1
-         ORDER BY created_at DESC
+         GROUP BY result
+         ORDER BY MAX(created_at) DESC
          LIMIT 1`,
         [battleId]
     );
@@ -397,6 +450,6 @@ exports.getBattleResult = async (battleId) => {
 
     return {
         result,
-        expGained: exp_gained
+        expGained: parseInt(exp_gained),
     };
 };
